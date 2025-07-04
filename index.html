@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Word Jumbler Game</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: #f4f4f4;
+      margin: 0;
+    }
+
+    .container {
+      background: white;
+      padding: 2rem 3rem;
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+      text-align: center;
+      width: 300px;
+    }
+
+    h1 {
+      margin-bottom: 1rem;
+    }
+
+    input, button {
+      width: 100%;
+      padding: 0.7rem;
+      margin: 0.5rem 0;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+
+    button {
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+      border: none;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    .result {
+      margin-top: 1rem;
+      font-weight: bold;
+    }
+
+    .error {
+      color: red;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Word Jumbler</h1>
+
+    <input id="word" placeholder="Enter base word (min 3 letters)" />
+    <input id="seed" placeholder="Enter seed (number)" type="number" />
+    <button onclick="startGame()">Start Game</button>
+    
+    <p class="error" id="errorMsg"></p>
+    <p class="result" id="jumbleResult"></p>
+  </div>
+
+  <script>
+  const baseUrl = "http://localhost:8000";
+  let gameStarted = false;
+  let originalWord = "";
+  let gameEnded = false;
+
+  const wordInput = document.getElementById("word");
+  const seedInput = document.getElementById("seed");
+  const resultEl = document.getElementById("jumbleResult");
+  const errorEl = document.getElementById("errorMsg");
+
+  // Auto-reset game if user changes base word
+  wordInput.addEventListener("input", () => {
+    gameStarted = false;
+    gameEnded = false;
+    originalWord = "";
+    resultEl.innerText = "";
+    resultEl.style.color = "#000";
+    errorEl.innerText = "";
+  });
+
+  // Jumble updates on seed change
+  seedInput.addEventListener("input", async () => {
+    if (gameStarted && !gameEnded) {
+      await fetchJumble();
+    }
+  });
+
+  async function startGame() {
+    const word = wordInput.value.trim();
+    const seed = seedInput.value.trim();
+    errorEl.innerText = "";
+    resultEl.innerText = "";
+    resultEl.style.color = "#000";
+
+    if (!word || word.length < 3) {
+      errorEl.innerText = "Word must be at least 3 letters.";
+      return;
+    }
+
+    if (!seed) {
+      errorEl.innerText = "Seed is required.";
+      return;
+    }
+
+    try {
+      const res = await fetch(`${baseUrl}/set-word`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ word })
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        errorEl.innerText = "" + err.detail;
+        return;
+      }
+
+      gameStarted = true;
+      originalWord = word;
+      await fetchJumble();
+    } catch (e) {
+      errorEl.innerText = "Server not reachable.";
+    }
+  }
+
+  async function fetchJumble() {
+    const seed = seedInput.value.trim();
+
+    if (!seed) return;
+
+    try {
+      const res = await fetch(`${baseUrl}/jumble?seed=${seed}`);
+      const data = await res.json();
+      const jumbled = data.jumbled;
+
+      if (jumbled === originalWord) {
+        resultEl.innerText = `You found the original word "${jumbled}" at seed ${seed}`;
+        resultEl.style.color = "green";
+        gameEnded = true;
+      } else {
+        resultEl.innerText = `Jumbled Word: ${jumbled}`;
+        resultEl.style.color = "#000";
+      }
+    } catch (e) {
+      resultEl.innerText = "Failed to fetch jumbled word.";
+    }
+  }
+</script>
+
+</body>
+</html>
